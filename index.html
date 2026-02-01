@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>並べ替え英作文パズル</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>
+body{
+  font-family: "Segoe UI", sans-serif;
+  max-width: 980px;
+  margin: 28px auto;
+  background:#f7f8fb;
+  padding: 0 12px 80px;
+}
+
+.header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-bottom: 10px;
+}
+
+h1{ margin: 6px 0; font-size: 22px; }
+
+.question{
+  background:white;
+  padding:18px;
+  border-radius:14px;
+  box-shadow:0 4px 12px rgba(0,0,0,0.06);
+  margin-bottom:16px;
+}
+
+.jp{
+  font-size:20px;
+  font-weight:800;
+  color:#111;
+  padding:12px 14px;
+  border-left:6px solid #4a6cf7;
+  background:linear-gradient(90deg,#eef2ff,#ffffff);
+  border-radius:10px;
+}
+
+.history{
+  margin-top:10px;
+  font-size:14px;
+  color:#555;
+}
+
+.box{
+  border:2px dashed #cfd3dc;
+  padding:12px;
+  min-height:70px;
+  margin:10px 0;
+  border-radius:12px;
+  background:white;
+}
+
+button{
+  margin:5px 6px 0 0;
+  padding:10px 14px;
+  cursor:pointer;
+  border-radius:10px;
+  border:none;
+  font-size:15px;
+}
+
+.word{ background:#222; color:white; }
+.word:disabled{ opacity:.45; cursor:not-allowed; }
+
+.built{ background:#e9eefc; }
+.built:disabled{ opacity:.45; cursor:not-allowed; }
+
+.controls{ display:flex; gap:8px; flex-wrap:wrap; margin: 10px 0 6px; }
+.ctrl{ background:#111827; color:white; }
+.ctrl2{ background:#e5e7eb; color:#111; }
+.ctrl3{ background:#10b981; color:white; }
+
+.correct{ color:#0a7f2e; font-weight:900; font-size:18px; white-space:pre-line; }
+.wrong{ color:#c0392b; font-weight:900; font-size:18px; white-space:pre-line; }
+
+.explain{
+  margin-top:12px;
+  padding:14px;
+  background:#ffffff;
+  border-left:6px solid #4a6cf7;
+  border-radius:10px;
+  line-height:1.65;
+}
+
+.hint{
+  margin-top:12px;
+  padding:14px;
+  background:#ecfdf5;
+  border-left:6px solid #10b981;
+  border-radius:10px;
+  line-height:1.65;
+}
+
+.answer-log{
+  margin-top:12px;
+  padding:12px;
+  background:#fff7ed;
+  border-left:6px solid #fb923c;
+  border-radius:10px;
+  font-size:14px;
+  line-height:1.6;
+}
+
+/* 編集パネル */
+.editor{
+  background:white;
+  border-radius:14px;
+  padding:14px;
+  box-shadow:0 4px 12px rgba(0,0,0,0.06);
+  margin-top:16px;
+  display:none;
+}
+.editor h2{
+  margin: 0 0 10px;
+  font-size:18px;
+}
+.grid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+}
+@media (max-width: 760px){
+  .grid{ grid-template-columns: 1fr; }
+}
+.field label{
+  display:block;
+  font-size:12px;
+  color:#555;
+  margin: 2px 0 6px;
+  font-weight:700;
+}
+.field input, .field textarea, .field select{
+  width:100%;
+  border:1px solid #d1d5db;
+  border-radius:10px;
+  padding:10px;
+  font-size:14px;
+  background:#fff;
+  box-sizing:border-box;
+}
+.field textarea{ min-height: 88px; resize: vertical; }
+.small{
+  color:#6b7280; font-size:12px; margin-top:6px;
+}
+.row{
+  display:flex; gap:8px; flex-wrap:wrap; align-items:center;
+}
+.danger{ background:#ef4444; color:white; }
+</style>
+</head>
+
+<body>
+
+<div class="header">
+  <h1>並べ替え英作文パズル</h1>
+  <div class="row">
+    <button class="ctrl2" onclick="toggleEditor()">編集モード</button>
+    <button class="ctrl2" onclick="clearHistory()">履歴リセット</button>
+  </div>
+</div>
+
+<div class="question">
+  <div id="jp" class="jp"></div>
+  <div id="history" class="history"></div>
+</div>
+
+<div class="controls">
+  <button class="ctrl2" onclick="reset()">リセット</button>
+  <button class="ctrl" onclick="next()">次の問題</button>
+  <button class="ctrl3" onclick="toggleHint()">ヒント</button>
+</div>
+
+<h3>あなたの文（クリックで戻す）</h3>
+<div id="built" class="box"></div>
+
+<h3>単語（クリックで上に入る）</h3>
+<div id="pool" class="box"></div>
+
+<p id="result"></p>
+<div id="explain"></div>
+<div id="hint" class="hint" style="display:none;"></div>
+<div id="log"></div>
+
+<!-- 編集パネル -->
+<div id="editor" class="editor">
+  <h2>問題編集</h2>
+  <div class="row" style="margin-bottom:10px;">
+    <div class="field" style="min-width:260px; flex:1;">
+      <label>編集する問題</label>
+      <select id="ed_select" onchange="loadEditorFromSelected()"></select>
+      <div class="small">※編集はブラウザに保存されます（localStorage）。</div>
+    </div>
+    <div class="row">
+      <button class="ctrl2" onclick="addQuestion()">＋問題を追加</button>
+      <button class="danger" onclick="deleteQuestion()">この問題を削除</button>
+      <button class="ctrl2" onclick="resetQuestionsToDefault()">問題を初期化（元に戻す）</button>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="field">
+      <label>日本語（問題文）</label>
+      <textarea id="ed_jp"></textarea>
+    </div>
+    <div class="field">
+      <label>正解英文（answer）</label>
+      <textarea id="ed_answer"></textarea>
+      <div class="small">採点は大文字小文字を無視して判定します。</div>
+    </div>
+
+    <div class="field">
+      <label>単語タイル（tokens）</label>
+      <textarea id="ed_tokens" placeholder="1行に1トークン（スペースを含むトークンもOK）"></textarea>
+      <div class="small">例：「this summer」みたいにスペースを含むタイルもOK。</div>
+    </div>
+    <div class="field">
+      <label>ヒント（hint）</label>
+      <textarea id="ed_hint"></textarea>
+    </div>
+
+    <div class="field" style="grid-column: 1 / -1;">
+      <label>解説（explain：HTML可）</label>
+      <textarea id="ed_explain"></textarea>
+      <div class="small">例：&lt;b&gt;強調&lt;/b&gt; や &lt;br&gt; 改行が使えます。</div>
+    </div>
+  </div>
+
+  <div class="row" style="margin-top:10px;">
+    <button class="ctrl" onclick="saveEditorToQuestions()">この問題を保存</button>
+  </div>
+</div>
+
+<script>
+/*********************
+ Cookie（履歴用）
+*********************/
+function setCookie(name, value, days=365){
+  const d = new Date();
+  d.setTime(d.getTime() + (days*24*60*60*1000));
+  document.cookie = name + "=" + encodeURIComponent(JSON.stringify(value))
+    + ";expires=" + d.toUTCString() + ";path=/";
+}
+function getCookie(name){
+  const cookies = document.cookie.split("; ");
+  for(const c of cookies){
+    const parts = c.split("=");
+    const k = parts[0];
+    const v = parts.slice(1).join("=");
+    if(k===name){
+      try{ return JSON.parse(decodeURIComponent(v)); }catch{ return null; }
+    }
+  }
+  return null;
+}
+function escapeHtml(s){
+  return String(s)
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#39;");
+}
+
+/*********************
+ 問題データ（デフォルト）
+*********************/
+const DEFAULT_QUESTIONS = [
+  // 元の5問＋あなたが送ってくれた追加分（前回まで入ってるものを想定）
+  // ここは「前回あなたのアプリに入れていたもの」を残しつつ、編集機能で直していけます。
+  // ※既にあなたの環境で動いているなら、このDEFAULT_QUESTIONSは前回の内容でOKです。
+  {
+    jp:"どこでもドアがあったらいいと思いませんか。",
+    tokens:["an","anywhere","door","if","wouldn't","be","we","had","it","nice"],
+    answer:"Wouldn't it be nice if we had an anywhere door?",
+    hint:"出だしは Wouldn't it be nice if...（仮定法）。",
+    explain:"<b>Wouldn't it be nice if + S + 過去形 ?</b> の定番。"
+  },
+  {
+    jp:"私にとってこの歌を歌うのはとても難しいです。",
+    tokens:["this","song","for","sing","me","it","very","difficult","to","is"],
+    answer:"It is very difficult for me to sing this song.",
+    hint:"It is + 形容詞 + for + 人 + to + 動詞",
+    explain:"It が仮主語。<b>It is difficult for me to ...</b>"
+  },
+  {
+    jp:"大雪にもかかわらず、列車は時間通りに到着しました。",
+    tokens:["the","train","on","the","heavy","snow","arrived","time","spite","of","in"],
+    answer:"The train arrived on time in spite of the heavy snow.",
+    hint:"in spite of + 名詞 / on time",
+    explain:"<b>in spite of</b> の後は名詞。"
+  },
+  {
+    jp:"私たちは今朝早くからパーティーの準備をしています。",
+    tokens:["preparing","this","morning","been","early","from","the","party","for","we've"],
+    answer:"We've been preparing for the party from early this morning.",
+    hint:"have been + -ing",
+    explain:"現在完了進行形。"
+  },
+  {
+    jp:"毎日30分の運動をすることはあなたの健康によいでしょう。",
+    tokens:["every","day","of","thirty","health","exercise","would","for","good","your","be","minutes"],
+    answer:"Thirty minutes of exercise every day would be good for your health.",
+    hint:"Thirty minutes of exercise が主語",
+    explain:"minutes of で「何の分？」。"
+  }
+];
+
+/*********************
+ 問題データ（編集保存：localStorage）
+*********************/
+const LS_KEY = "englishPuzzleQuestions_v2";
+function loadQuestions(){
+  const raw = localStorage.getItem(LS_KEY);
+  if(!raw) return DEFAULT_QUESTIONS;
+  try{
+    const q = JSON.parse(raw);
+    if(Array.isArray(q) && q.length) return q;
+    return DEFAULT_QUESTIONS;
+  }catch{
+    return DEFAULT_QUESTIONS;
+  }
+}
+function saveQuestions(qs){
+  localStorage.setItem(LS_KEY, JSON.stringify(qs));
+}
+
+/*********************
+ アプリ状態
+*********************/
+let questions = loadQuestions();
+let historyData = getCookie("englishPuzzleHistory") || {};
+let index = 0;
+let pool = [];
+let built = [];
+let locked = false;
+let hintOpen = false;
+let editorOpen = false;
+
+function shuffle(arr){ return [...arr].sort(()=>Math.random()-0.5); }
+
+// 採点用：大文字小文字は無視（ユーザー要望）
+function normalizeForGrade(s){
+  return String(s).trim().replace(/\s+/g," ").toLowerCase();
+}
+function makeSentence(){
+  // ここで文頭大文字化は「してもしなくても」採点に影響しない
+  let s = built.join(" ").trim();
+  if(!s) return "";
+  // 句読点は正解に合わせて付ける
+  const ans = questions[index].answer || "";
+  const needQ = ans.trim().endsWith("?");
+  if(!/[?.!]$/.test(s)){
+    s += needQ ? "?" : ".";
+  }
+  return s;
+}
+
+// ミス傾向（文頭大文字は廃止：ユーザー要望）
+function diffKeys(user, ans){
+  const keys = [];
+  const u = normalizeForGrade(user);
+  const a = normalizeForGrade(ans);
+
+  if(u.slice(-1) !== a.slice(-1)) keys.push("文末の記号");
+
+  const uw = u.replace(/[?.!]$/,"").split(/\s+/);
+  const aw = a.replace(/[?.!]$/,"").split(/\s+/);
+  if(uw.join("|") !== aw.join("|")) keys.push("語順");
+
+  return keys;
+}
+
+/*********************
+ 表示
+*********************/
+function renderHistory(){
+  const h = historyData[index];
+  const div = document.getElementById("history");
+
+  if(!h){
+    div.innerHTML = "📊 この問題はまだ解いていません";
+    return;
+  }
+
+  const tries = h.tries ?? 0;
+  const win = h.correctCount ?? 0;
+  const lose = h.wrongCount ?? 0;
+
+  const last = h.lastAnswer ? `<br>📝 前回の解答： <i>${escapeHtml(h.lastAnswer)}</i>` : "";
+  const lastMist = h.lastMistake ? `<br>⚠️ 前回のミス： <i>${escapeHtml(h.lastMistake)}</i>` : "";
+  const common = h.commonMistake ? `<br>📌 よくあるミス： <b>${escapeHtml(h.commonMistake)}</b>` : "";
+
+  div.innerHTML = `📊 記録：<b>${win}勝 / ${lose}敗</b>（挑戦 ${tries}回）${last}${lastMist}${common}`;
+}
+
+function render(){
+  const q = questions[index];
+  document.getElementById("jp").textContent = `問題 ${index+1}： ${q.jp}`;
+
+  renderHistory();
+
+  const hintDiv = document.getElementById("hint");
+  if(hintOpen){
+    hintDiv.style.display = "block";
+    const h = historyData[index] || {};
+    const common = h.commonMistake ? `<br>📌 よくあるミス：<b>${escapeHtml(h.commonMistake)}</b>` : "";
+    let recent = "";
+    if(Array.isArray(h.mistakes) && h.mistakes.length){
+      recent += "<br><b>最近のミス（最大5）</b><br><ol style='margin:6px 0 0 18px; padding:0;'>";
+      h.mistakes.forEach(m=> recent += `<li style='margin:4px 0;'>${escapeHtml(m)}</li>`);
+      recent += "</ol>";
+    }
+    hintDiv.innerHTML = `<b>ヒント</b><br>${q.hint || ""}${common}${recent}`;
+  }else{
+    hintDiv.style.display = "none";
+    hintDiv.innerHTML = "";
+  }
+
+  const poolDiv = document.getElementById("pool");
+  const builtDiv = document.getElementById("built");
+
+  poolDiv.innerHTML = "";
+  builtDiv.innerHTML = "";
+
+  pool.forEach((w,i)=>{
+    const btn = document.createElement("button");
+    btn.textContent = w;
+    btn.className = "word";
+    btn.disabled = locked;
+    btn.onclick = ()=>{
+      built.push(w);
+      pool.splice(i,1);
+      render();
+      autoCheck();
+    };
+    poolDiv.appendChild(btn);
+  });
+
+  built.forEach((w,i)=>{
+    const btn = document.createElement("button");
+    btn.textContent = w;
+    btn.className = "built";
+    btn.disabled = locked;
+    btn.onclick = ()=>{
+      pool.push(w);
+      built.splice(i,1);
+      render();
+    };
+    builtDiv.appendChild(btn);
+  });
+}
+
+function reset(){
+  pool = shuffle(questions[index].tokens || []);
+  built = [];
+  locked = false;
+  hintOpen = false;
+
+  document.getElementById("result").textContent = "";
+  document.getElementById("explain").innerHTML = "";
+  document.getElementById("hint").innerHTML = "";
+  document.getElementById("hint").style.display = "none";
+  document.getElementById("log").innerHTML = "";
+
+  render();
+}
+
+function autoCheck(){
+  if(built.length !== (questions[index].tokens || []).length) return;
+
+  locked = true;
+
+  const sentence = makeSentence();
+  const ans = questions[index].answer || "";
+  const correct = (normalizeForGrade(sentence) === normalizeForGrade(ans));
+
+  const result = document.getElementById("result");
+  const explain = document.getElementById("explain");
+  const log = document.getElementById("log");
+
+  // ===== 履歴保存（Cookie） =====
+  const prev = historyData[index] || {};
+  const tries = (prev.tries ?? 0) + 1;
+  const correctCount = (prev.correctCount ?? 0) + (correct ? 1 : 0);
+  const wrongCount = (prev.wrongCount ?? 0) + (correct ? 0 : 1);
+
+  const lastAnswer = sentence;
+  const lastMistake = correct ? null : sentence;
+
+  // よくあるミス（語順／文末記号のみ）
+  const diffs = prev.diffs || {order:0, end:0};
+  if(!correct){
+    const keys = diffKeys(sentence, ans);
+    if(keys.includes("語順")) diffs.order += 1;
+    if(keys.includes("文末の記号")) diffs.end += 1;
+  }
+
+  let commonMistake = null;
+  const entries = [
+    ["語順", diffs.order],
+    ["文末の記号", diffs.end],
+  ];
+  entries.sort((a,b)=>b[1]-a[1]);
+  if(entries[0][1] > 0) commonMistake = entries[0][0];
+
+  // 最近のミス最大5件
+  const mistakes = Array.isArray(prev.mistakes) ? prev.mistakes.slice(0) : [];
+  if(!correct) mistakes.unshift(sentence);
+
+  const uniq = [];
+  const seen = new Set();
+  for(const m of mistakes){
+    if(!seen.has(m)){
+      uniq.push(m);
+      seen.add(m);
+    }
+    if(uniq.length >= 5) break;
+  }
+
+  historyData[index] = {
+    tries, correctCount, wrongCount,
+    lastAnswer, lastMistake,
+    commonMistake, diffs,
+    mistakes: uniq,
+  };
+  setCookie("englishPuzzleHistory", historyData);
+
+  // ===== 表示 =====
+  if(correct){
+    result.textContent = "正解！！🎉";
+    result.className = "correct";
+    log.innerHTML = "";
+  }else{
+    result.textContent = `不正解！\n正解： ${questions[index].answer}`;
+    result.className = "wrong";
+
+    const keys = diffKeys(sentence, ans);
+    log.innerHTML = `
+      <div class="answer-log">
+        ❗あなたの解答：<br>${escapeHtml(sentence)}<br><br>
+        📌 ミス傾向：<b>${escapeHtml(commonMistake || (keys.join(" / ") || "表記"))}</b>
+      </div>
+    `;
+  }
+
+  explain.innerHTML = `<div class="explain"><b>解説：</b><br>${questions[index].explain || ""}</div>`;
+  renderHistory();
+
+  if(hintOpen){
+    // ヒントを開いていたら更新
+    render();
+  }
+}
+
+function next(){
+  index = (index + 1) % questions.length;
+  reset();
+}
+
+function toggleHint(){
+  hintOpen = !hintOpen;
+  render();
+}
+
+/*********************
+ 履歴リセット
+*********************/
+function clearHistory(){
+  if(!confirm("履歴（正解/不正解）をリセットします。OK？")) return;
+  historyData = {};
+  setCookie("englishPuzzleHistory", historyData);
+  renderHistory();
+  alert("履歴をリセットしました。");
+}
+
+/*********************
+ 編集モード
+*********************/
+function toggleEditor(){
+  editorOpen = !editorOpen;
+  const el = document.getElementById("editor");
+  el.style.display = editorOpen ? "block" : "none";
+  if(editorOpen){
+    refreshEditorSelect();
+    loadEditorFromSelected();
+  }
+}
+
+function refreshEditorSelect(){
+  const sel = document.getElementById("ed_select");
+  sel.innerHTML = "";
+  questions.forEach((q,i)=>{
+    const opt = document.createElement("option");
+    const label = (q.jp || "").slice(0,22);
+    opt.value = String(i);
+    opt.textContent = `${i+1}. ${label}${(q.jp||"").length>22 ? "…" : ""}`;
+    sel.appendChild(opt);
+  });
+  sel.value = String(index); // 今表示中の問題を選択
+}
+
+function loadEditorFromSelected(){
+  const sel = document.getElementById("ed_select");
+  const i = Number(sel.value);
+  const q = questions[i];
+  document.getElementById("ed_jp").value = q.jp || "";
+  document.getElementById("ed_answer").value = q.answer || "";
+  document.getElementById("ed_tokens").value = (q.tokens || []).join("\n");
+  document.getElementById("ed_hint").value = q.hint || "";
+  document.getElementById("ed_explain").value = q.explain || "";
+}
+
+function saveEditorToQuestions(){
+  const sel = document.getElementById("ed_select");
+  const i = Number(sel.value);
+
+  const jp = document.getElementById("ed_jp").value.trim();
+  const answer = document.getElementById("ed_answer").value.trim();
+  const tokensRaw = document.getElementById("ed_tokens").value.split("\n").map(s=>s.trim()).filter(Boolean);
+  const hint = document.getElementById("ed_hint").value.trim();
+  const explain = document.getElementById("ed_explain").value.trim();
+
+  if(!jp || !answer || tokensRaw.length === 0){
+    alert("日本語 / 正解英文 / tokens は必須です。");
+    return;
+  }
+
+  questions[i] = { jp, answer, tokens: tokensRaw, hint, explain };
+  saveQuestions(questions);
+
+  // 表示中の問題が編集対象なら、そのまま反映
+  if(i === index){
+    reset();
+  }else{
+    renderHistory();
+  }
+  alert("保存しました。");
+  refreshEditorSelect();
+  document.getElementById("ed_select").value = String(i);
+}
+
+function addQuestion(){
+  const newQ = {
+    jp:"（ここに日本語）",
+    tokens:["(token1)","(token2)"],
+    answer:"(answer).",
+    hint:"（ヒント）",
+    explain:"（解説）"
+  };
+  questions.push(newQ);
+  saveQuestions(questions);
+  refreshEditorSelect();
+  document.getElementById("ed_select").value = String(questions.length-1);
+  loadEditorFromSelected();
+  alert("問題を追加しました。編集して保存してください。");
+}
+
+function deleteQuestion(){
+  const sel = document.getElementById("ed_select");
+  const i = Number(sel.value);
+  if(questions.length <= 1){
+    alert("最後の1問は削除できません。");
+    return;
+  }
+  if(!confirm("この問題を削除します。OK？")) return;
+
+  questions.splice(i,1);
+  saveQuestions(questions);
+
+  // index調整
+  if(index >= questions.length) index = 0;
+
+  refreshEditorSelect();
+  document.getElementById("ed_select").value = String(index);
+  loadEditorFromSelected();
+  reset();
+  alert("削除しました。");
+}
+
+function resetQuestionsToDefault(){
+  if(!confirm("問題を初期状態に戻します（編集内容は消えます）。OK？")) return;
+  localStorage.removeItem(LS_KEY);
+  questions = loadQuestions();
+  // indexも安全側に
+  index = Math.min(index, questions.length-1);
+  refreshEditorSelect();
+  loadEditorFromSelected();
+  reset();
+  alert("問題を初期化しました。");
+}
+
+// 初期化
+reset();
+</script>
+
+</body>
+</html>
